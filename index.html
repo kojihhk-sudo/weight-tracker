@@ -278,21 +278,22 @@
             if(!chart || records.length === 0) return;
             const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
             
-            // 提取數據以計算軸範圍
             const weights = sorted.map(r => r.weight);
             const fats = sorted.map(r => r.fat);
             
-            // 體重轴 (yW) - 保持在畫面上半部
             const minW = Math.min(...weights);
             const maxW = Math.max(...weights);
-            chart.options.scales.yW.min = minW - (maxW - minW) * 0.1 - 2; // 下留空間
-            chart.options.scales.yW.max = maxW + (maxW - minW) * 0.8 + 5; // 上留大量空間
+            const diffW = maxW - minW || 10;
+            // 體重轴 (yW)：降低上方的留白比例至約 10% (0.3 係數)
+            chart.options.scales.yW.min = minW - diffW * 0.1 - 1; 
+            chart.options.scales.yW.max = maxW + diffW * 0.3 + 2; 
             
-            // 體脂轴 (yF) - 保持在畫面下半部
             const minF = Math.min(...fats);
             const maxF = Math.max(...fats);
-            chart.options.scales.yF.min = minF - (maxF - minF) * 0.8 - 5; // 下留大量空間
-            chart.options.scales.yF.max = maxF + (maxF - minF) * 0.1 + 2; // 上留空間
+            const diffF = maxF - minF || 5;
+            // 體脂轴 (yF)：降低下方的留白比例至約 10% (0.3 係數)
+            chart.options.scales.yF.min = minF - diffF * 0.3 - 1; 
+            chart.options.scales.yF.max = maxF + diffF * 0.1 + 1; 
 
             chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
             chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
