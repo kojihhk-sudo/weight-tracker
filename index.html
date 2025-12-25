@@ -53,7 +53,7 @@
         .add-btn { grid-column: span 3; margin-top: 10px; padding: 14px; background: var(--s); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; }
         
         .filter-group { display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; }
-        .filter-btn { padding: 8px 10px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.75rem; flex: 1; max-width: 80px; }
+        .filter-btn { padding: 8px 5px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.7rem; flex: 1; max-width: 85px; text-align: center; }
         .filter-btn.active { background: var(--p); color: white; border-color: var(--p); }
         
         .chart-container { height: 250px; position: relative; }
@@ -98,8 +98,8 @@
 
         <div class="card">
             <div class="filter-group">
-                <button id="btn7" class="filter-btn" onclick="setSpan(7, this)">1週</button>
                 <button id="btn30" class="filter-btn" onclick="setSpan(30, this)">1個月</button>
+                <button id="btn90" class="filter-btn" onclick="setSpan(90, this)">3個月</button>
                 <button id="btn365" class="filter-btn" onclick="setSpan(365, this)">1年</button>
                 <button id="btn0" class="filter-btn active" onclick="setSpan(0, this)">全部</button>
             </div>
