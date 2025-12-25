@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>體重體脂雲端App</title>
+    <title>我的雲端體脂計</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -25,10 +25,10 @@
         #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .login-btn { padding: 15px 30px; background: white; color: black; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; }
         
-        /* 介面其餘樣式保持 (略...) */
         .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.9rem; color: var(--sub); }
         .input-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
         .field { display: flex; flex-direction: column; gap: 4px; }
+        label { font-size: 0.75rem; color: var(--sub); }
         input { padding: 12px; border: 1px solid #444; border-radius: 10px; background: var(--input); color: white; width: 100%; box-sizing: border-box; }
         .add-btn { grid-column: span 3; margin-top: 10px; padding: 15px; background: var(--s); color: white; border: none; border-radius: 12px; font-weight: bold; }
         .filter-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); }
@@ -37,12 +37,13 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         td, th { padding: 12px 5px; text-align: center; border-bottom: 1px solid #333; }
         .hidden { display: none !important; }
+        .bmi-badge { padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="loginOverlay">
-        <h1 style="color: var(--p)">體重體脂記錄App</h1>
+        <h1 style="color: var(--p)">體重體脂雲端App</h1>
         <p style="color: var(--sub); margin-bottom: 30px;">請登入以同步您的雲端數據</p>
         <button class="login-btn" onclick="login()">
             <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="20"> 使用 Google 帳號登入
@@ -56,12 +57,15 @@
         </div>
         
         <div class="status-bar">
-            身高: <span id="txtHeight" onclick="toggleHeightEdit(true)" style="color:var(--p); font-weight:bold;">--</span> cm
+            身高: <span id="txtHeight" onclick="toggleHeightEdit(true)" style="color:var(--p); font-weight:bold; cursor:pointer;">--</span> cm
         </div>
 
         <div id="heightEditArea" class="card hidden">
-            <input type="number" id="heightInput" placeholder="設定身高">
-            <button onclick="saveHeight()" style="width:100%; margin-top:10px; padding:10px; background:var(--p); border:none; border-radius:10px; color:white;">儲存身高</button>
+            <label>設定身高 (cm)</label>
+            <div style="display:flex; gap:10px; margin-top:5px;">
+                <input type="number" id="heightInput" placeholder="例如: 175">
+                <button onclick="saveHeight()" style="padding:0 20px; background:var(--p); border:none; border-radius:10px; color:white; font-weight:bold;">儲存</button>
+            </div>
         </div>
 
         <div class="card">
@@ -75,9 +79,9 @@
 
         <div class="card">
             <div class="filter-group" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
-                <button class="filter-btn" onclick="setSpan(7, this)">1週</button>
-                <button class="filter-btn" onclick="setSpan(30, this)">1月</button>
-                <button class="filter-btn active" onclick="setSpan(0, this)">全部</button>
+                <button id="btn7" class="filter-btn" onclick="setSpan(7, this)">1週</button>
+                <button id="btn30" class="filter-btn" onclick="setSpan(30, this)">1月</button>
+                <button id="btn0" class="filter-btn active" onclick="setSpan(0, this)">全部</button>
             </div>
             <div class="chart-container"><canvas id="trendChart"></canvas></div>
         </div>
@@ -110,18 +114,22 @@
         let records = [];
         let userHeight = "";
         let chart = null;
+        let currentSpan = 0;
 
-        // 2. 登入/登出邏輯
+        // 2. 登入/登出 (採用 Popup 彈出方式)
         function login() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithRedirect(provider);
+            auth.signInWithPopup(provider).catch(err => {
+                alert("登入失敗: " + err.message);
+            });
         }
 
         function logout() {
-            auth.signOut().then(() => location.reload());
+            if(confirm("確定要登出嗎？")) {
+                auth.signOut().then(() => location.reload());
+            }
         }
 
-        // 監聽登入狀態
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
@@ -129,9 +137,8 @@
                 document.getElementById('mainApp').classList.remove('hidden');
                 document.getElementById('userEmail').innerText = user.email;
                 
-                // 綁定該使用者的資料路徑
-                const userRef = db.ref('users/' + user.uid);
-                userRef.on('value', snapshot => {
+                // 讀取該用戶專屬路徑
+                db.ref('users/' + user.uid).on('value', snapshot => {
                     const data = snapshot.val() || {};
                     records = data.records || [];
                     userHeight = data.height || "";
@@ -143,71 +150,141 @@
             }
         });
 
-        // 3. 資料操作 (寫入該用戶專屬路徑)
+        // 3. 資料與 UI 邏輯
         function sync() {
-            if (!currentUser) return;
-            db.ref('users/' + currentUser.uid).set({
-                height: userHeight,
-                records: records
-            });
+            if (currentUser) {
+                db.ref('users/' + currentUser.uid).set({
+                    height: userHeight,
+                    records: records
+                });
+            }
         }
 
-        // ... 其餘 updateDisplay, addData, initChart 邏輯與之前相同，
-        // 僅需確保在修改 records 或 userHeight 後呼叫 sync() 即可 ...
-        
+        function getBMIInfo(weight) {
+            if (!userHeight || !weight) return { val: "--", col: "var(--sub)" };
+            const bmi = (weight / ((userHeight/100)**2)).toFixed(1);
+            let col = "var(--bmi-normal)";
+            if (bmi < 18.5) col = "var(--bmi-under)";
+            else if (bmi >= 24) col = "var(--bmi-over)";
+            return { val: bmi, col: col };
+        }
+
         function updateDisplay() {
-            // 更新 UI, 重新整理表格與圖表 (同前版本)
             document.getElementById('txtHeight').innerText = userHeight || "--";
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             
-            // 排序與顯示邏輯
-            records.sort((a,b) => new Date(a.date) - new Date(b.date));
-            for(let i=records.length-1; i>=0; i--) {
-                const r = records[i];
-                const bmi = userHeight ? (r.weight / ((userHeight/100)**2)).toFixed(1) : "--";
+            // 由新到舊排序顯示在表格
+            const displayRecords = [...records].sort((a,b) => new Date(b.date) - new Date(a.date));
+            
+            displayRecords.forEach(r => {
+                const bmi = getBMIInfo(r.weight);
                 tbody.innerHTML += `<tr>
                     <td>${r.date.split('-').slice(1).join('/')}</td>
-                    <td>${r.weight}</td>
-                    <td>${r.fat}%</td>
-                    <td>${bmi}</td>
-                    <td><button onclick="deleteRecord('${r.date}')" style="background:none; border:none; color:#555;">✕</button></td>
+                    <td>${r.weight.toFixed(1)}</td>
+                    <td>${r.fat.toFixed(1)}%</td>
+                    <td><span class="bmi-badge" style="color:${bmi.col}">${bmi.val}</span></td>
+                    <td><button onclick="deleteRecord('${r.date}')" style="background:none; border:none; color:#555; font-size:1.2rem; cursor:pointer;">✕</button></td>
                 </tr>`;
-            }
+            });
+
             if(!chart) initChart();
             updateChart();
         }
 
         function addData() {
-            const w = document.getElementById('weightInput').value;
-            const f = document.getElementById('fatInput').value;
-            const d = document.getElementById('dateInput').value;
-            if(!w || !f) return;
-            records.push({ date: d, weight: parseFloat(w), fat: parseFloat(f) });
-            sync(); // 同步回雲端
+            const wInput = document.getElementById('weightInput');
+            const fInput = document.getElementById('fatInput');
+            const dInput = document.getElementById('dateInput');
+            
+            if(!wInput.value || !fInput.value) { alert("請輸入數值"); return; }
+            
+            const newRecord = { 
+                date: dInput.value, 
+                weight: parseFloat(wInput.value), 
+                fat: parseFloat(fInput.value) 
+            };
+            
+            // 如果日期重複則覆蓋
+            const idx = records.findIndex(r => r.date === newRecord.date);
+            if(idx !== -1) records[idx] = newRecord;
+            else records.push(newRecord);
+            
+            sync();
+            wInput.value = ''; fInput.value = '';
         }
 
         function deleteRecord(date) {
-            records = records.filter(r => r.date !== date);
-            sync();
+            if(confirm("確定刪除 " + date + " 的紀錄嗎？")) {
+                records = records.filter(r => r.date !== date);
+                sync();
+            }
         }
 
         function saveHeight() {
-            userHeight = document.getElementById('heightInput').value;
-            sync();
-            toggleHeightEdit(false);
+            const h = document.getElementById('heightInput').value;
+            if(h > 50) {
+                userHeight = h;
+                sync();
+                toggleHeightEdit(false);
+            }
         }
 
         function toggleHeightEdit(show) { document.getElementById('heightEditArea').classList.toggle('hidden', !show); }
-        function setSpan(days, btn) { /* 同前邏輯... */ }
-        function initChart() { /* 同前版本，使用 Chart.js ... */ }
-        function updateChart() { /* 同前版本 ... */ }
-        
-        // 自動補點點邏輯
-        document.getElementById('weightInput').oninput = function() {
-            if(this.value.length === 3 && !this.value.includes('.')) this.value = this.value.slice(0,2) + '.' + this.value.slice(2);
+
+        function setSpan(days, btn) {
+            currentSpan = days;
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateChart();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: [
+                    { label: '體重', borderColor: '#4a90e2', data: [], yAxisID: 'yW', tension: 0.1, pointRadius: 3 },
+                    { label: '體脂', borderColor: '#f39c12', data: [], yAxisID: 'yF', tension: 0.1, pointRadius: 3 }
+                ]},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
+                        yW: { position: 'left', title: { display: true, text: '體重' } },
+                        yF: { position: 'right', title: { display: true, text: '體脂' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateChart() {
+            if(!chart) return;
+            const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+            chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
+            chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
+            
+            if(currentSpan > 0) {
+                const max = new Date();
+                const min = new Date();
+                min.setDate(max.getDate() - currentSpan);
+                chart.options.scales.x.min = min;
+                chart.options.scales.x.max = max;
+            } else {
+                chart.options.scales.x.min = null;
+                chart.options.scales.x.max = null;
+            }
+            chart.update();
+        }
+
+        // 輸入輔助
+        const autoPoint = (e) => {
+            let v = e.target.value.replace(/\D/g, '').slice(0,3);
+            if(v.length === 3) e.target.value = v.slice(0,2) + "." + v.slice(2);
         };
-        document.getElementById('fatInput').oninput = document.getElementById('weightInput').oninput;
+        document.getElementById('weightInput').oninput = autoPoint;
+        document.getElementById('fatInput').oninput = autoPoint;
         document.getElementById('dateInput').valueAsDate = new Date();
     </script>
 </body>
