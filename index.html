@@ -37,9 +37,8 @@
         .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         label { font-size: 0.65rem; color: var(--sub); padding-left: 1px; white-space: nowrap; }
         
-        /* --- 修正 Safari 日期置中問題 --- */
         input { 
-            height: 44px; /* 固定高度確保置中計算正確 */
+            height: 44px; 
             padding: 0 2px; 
             border: 1px solid #444; 
             border-radius: 10px; 
@@ -55,7 +54,6 @@
             -webkit-appearance: none;
         }
 
-        /* 關鍵：針對 Mac/iOS Safari 內部元素的置中修正 */
         #dateInput::-webkit-date-and-time-value {
             text-align: center;
             margin: 0;
@@ -272,34 +270,39 @@
                         yF: { position: 'right', grid: { display: false }, ticks: { color: '#f39c12' } }
                     },
                     plugins: { legend: { display: false } }
-                },
-                plugins: [{
-                    id: 'crosshair',
-                    afterDraw: (chart) => {
-                        if (chart.tooltip?._active?.length) {
-                            let x = chart.tooltip._active[0].element.x;
-                            let ctx = chart.ctx;
-                            ctx.save();
-                            ctx.beginPath(); ctx.moveTo(x, chart.scales.yW.top);
-                            ctx.lineTo(x, chart.scales.yW.bottom);
-                            ctx.lineWidth = 1; ctx.strokeStyle = '#666'; ctx.setLineDash([5, 5]);
-                            ctx.stroke(); ctx.restore();
-                        }
-                    }
-                }]
+                }
             });
         }
 
         function updateChart() {
-            if(!chart) return;
+            if(!chart || records.length === 0) return;
             const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
+            
+            // 提取數據以計算軸範圍
+            const weights = sorted.map(r => r.weight);
+            const fats = sorted.map(r => r.fat);
+            
+            // 體重轴 (yW) - 保持在畫面上半部
+            const minW = Math.min(...weights);
+            const maxW = Math.max(...weights);
+            chart.options.scales.yW.min = minW - (maxW - minW) * 0.1 - 2; // 下留空間
+            chart.options.scales.yW.max = maxW + (maxW - minW) * 0.8 + 5; // 上留大量空間
+            
+            // 體脂轴 (yF) - 保持在畫面下半部
+            const minF = Math.min(...fats);
+            const maxF = Math.max(...fats);
+            chart.options.scales.yF.min = minF - (maxF - minF) * 0.8 - 5; // 下留大量空間
+            chart.options.scales.yF.max = maxF + (maxF - minF) * 0.1 + 2; // 上留空間
+
             chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
             chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
+            
             if(currentSpan > 0) {
                 const max = new Date(); const min = new Date();
                 min.setDate(max.getDate() - currentSpan);
                 chart.options.scales.x.min = min; chart.options.scales.x.max = max;
             } else { chart.options.scales.x.min = null; chart.options.scales.x.max = null; }
+            
             chart.update();
         }
 
