@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>體重體脂記錄</title>
+    <title>我的體重體脂記錄</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -29,7 +29,6 @@
         #heightEditArea { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 15px; }
         #heightInput { width: 70px; padding: 6px; text-align: center; border-radius: 8px; border: 1px solid #444; background: var(--input); color: white; }
 
-        /* --- 終極輸入框佈局修正 --- */
         .input-group { 
             display: grid; 
             grid-template-columns: 1.15fr 0.9fr 0.9fr; 
@@ -52,8 +51,11 @@
         #dateInput { font-size: 0.75rem; }
 
         .add-btn { grid-column: span 3; margin-top: 10px; padding: 14px; background: var(--s); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; }
-        .filter-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.8rem; }
+        
+        .filter-group { display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; }
+        .filter-btn { padding: 8px 10px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.75rem; flex: 1; max-width: 80px; }
         .filter-btn.active { background: var(--p); color: white; border-color: var(--p); }
+        
         .chart-container { height: 250px; position: relative; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.85rem; table-layout: fixed; }
@@ -66,7 +68,7 @@
 <body>
 
     <div id="loginOverlay">
-        <h1 style="color: var(--p)">體重體脂雲端App</h1>
+        <h1 style="color: var(--p)">我的體重體脂記錄</h1>
         <button class="login-btn" onclick="login()">使用 Google 帳號登入</button>
     </div>
 
@@ -95,9 +97,10 @@
         </div>
 
         <div class="card">
-            <div class="filter-group" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;">
+            <div class="filter-group">
                 <button id="btn7" class="filter-btn" onclick="setSpan(7, this)">1週</button>
-                <button id="btn30" class="filter-btn" onclick="setSpan(30, this)">1月</button>
+                <button id="btn30" class="filter-btn" onclick="setSpan(30, this)">1個月</button>
+                <button id="btn365" class="filter-btn" onclick="setSpan(365, this)">1年</button>
                 <button id="btn0" class="filter-btn active" onclick="setSpan(0, this)">全部</button>
             </div>
             <div class="chart-container"><canvas id="trendChart"></canvas></div>
@@ -185,8 +188,7 @@
                 if (bmiVal < 18.5) bmiCol = "var(--bmi-under)";
                 else if (bmiVal >= 24) bmiCol = "var(--bmi-over)";
 
-                // 修正：年份簡寫處理 (例如 2025 -> '25)
-                const d = new Date(r.date.replace(/-/g, "/")); // 確保相容性
+                const d = new Date(r.date.replace(/-/g, "/"));
                 const yy = String(d.getFullYear()).slice(-2);
                 const mm = String(d.getMonth() + 1).padStart(2, '0');
                 const dd = String(d.getDate()).padStart(2, '0');
