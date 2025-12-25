@@ -3,64 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>我的雲端體脂計</title>
+    <title>我的雲端體重體脂計錄</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     
     <style>
         :root { 
-            --p: #4a90e2; --s: #27ae60; --f: #f39c12; --up: #ff5e57; --down: #1dd1a1; 
-            --bg: #121212; --card: #1e1e1e; --text: #e0e0e0; --sub: #999; --input: #2d2d2d;
-            --grid: #333333; /* 座標線顏色 */
+            --p: #4a90e2; --s: #27ae60; --f: #f39c12; --bg: #121212; --card: #1e1e1e; 
+            --text: #e0e0e0; --sub: #999; --input: #2d2d2d; --grid: #333;
             --bmi-normal: #1dd1a1; --bmi-under: #4a90e2; --bmi-over: #ff5e57;
         }
-        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: var(--bg); color: var(--text); }
-        .card { background: var(--card); padding: 20px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 15px; background: var(--bg); color: var(--text); }
+        .card { background: var(--card); padding: 15px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
         #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .login-btn { padding: 15px 30px; background: white; color: black; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 10px; }
         
-        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.9rem; color: var(--sub); }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.85rem; color: var(--sub); }
         
-        /* 身高靠右樣式 */
         .height-row { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 15px; font-size: 0.9rem; }
         #heightEditArea { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 15px; }
-        #heightInput { width: 80px; padding: 8px; text-align: center; }
-        .mini-btn { padding: 8px 15px; background: var(--p); border: none; border-radius: 8px; color: white; font-size: 0.8rem; }
+        #heightInput { width: 70px; padding: 6px; text-align: center; border-radius: 8px; border: 1px solid #444; background: var(--input); color: white; }
 
-        .input-group { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
+        /* --- 終極輸入框佈局修正 --- */
+        .input-group { 
+            display: grid; 
+            grid-template-columns: 1.15fr 0.9fr 0.9fr; 
+            gap: 5px; 
+        }
         .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-        label { font-size: 0.75rem; color: var(--sub); padding-left: 2px; }
-        input { padding: 12px 8px; border: 1px solid #444; border-radius: 10px; background: var(--input); color: white; width: 100%; box-sizing: border-box; font-size: 1rem; }
-        
-        .add-btn { grid-column: span 3; margin-top: 10px; padding: 15px; background: var(--s); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; }
-        .filter-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.85rem; }
+        label { font-size: 0.65rem; color: var(--sub); padding-left: 1px; white-space: nowrap; }
+        input { 
+            padding: 12px 2px; 
+            border: 1px solid #444; 
+            border-radius: 10px; 
+            background: var(--input); 
+            color: white; 
+            width: 100%; 
+            box-sizing: border-box; 
+            font-size: 0.85rem;
+            text-align: center;
+            -webkit-appearance: none;
+        }
+        #dateInput { font-size: 0.75rem; }
+
+        .add-btn { grid-column: span 3; margin-top: 10px; padding: 14px; background: var(--s); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+        .filter-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #444; background: none; color: var(--sub); cursor: pointer; font-size: 0.8rem; }
         .filter-btn.active { background: var(--p); color: white; border-color: var(--p); }
         .chart-container { height: 250px; position: relative; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        td, th { padding: 12px 5px; text-align: center; border-bottom: 1px solid #333; }
-        .bmi-badge { padding: 2px 6px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 0.85rem; table-layout: fixed; }
+        th { color: var(--sub); font-weight: normal; font-size: 0.75rem; }
+        td, th { padding: 12px 2px; text-align: center; border-bottom: 1px solid #333; overflow: hidden; text-overflow: ellipsis; }
+        .bmi-badge { padding: 2px 4px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; }
         .hidden { display: none !important; }
-
-        @media (max-width: 350px) {
-            .input-group { grid-template-columns: 1fr 1fr; }
-            .field:first-child { grid-column: span 2; }
-        }
     </style>
 </head>
 <body>
 
     <div id="loginOverlay">
         <h1 style="color: var(--p)">體重體脂雲端App</h1>
-        <button class="login-btn" onclick="login()">
-            <img src="https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png" width="20"> 使用 Google 帳號登入
-        </button>
+        <button class="login-btn" onclick="login()">使用 Google 帳號登入</button>
     </div>
 
     <div id="mainApp" class="hidden">
@@ -75,8 +82,7 @@
 
         <div id="heightEditArea" class="hidden">
             <input type="number" id="heightInput" placeholder="cm">
-            <button class="mini-btn" onclick="saveHeight()">儲存</button>
-            <button class="mini-btn" style="background:#444;" onclick="toggleHeightEdit(false)">取消</button>
+            <button onclick="saveHeight()" style="padding:6px 12px; background:var(--p); border:none; border-radius:8px; color:white;">儲存</button>
         </div>
 
         <div class="card">
@@ -89,7 +95,7 @@
         </div>
 
         <div class="card">
-            <div class="filter-group" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px;">
+            <div class="filter-group" style="display:flex; justify-content:center; gap:8px; margin-bottom:12px;">
                 <button id="btn7" class="filter-btn" onclick="setSpan(7, this)">1週</button>
                 <button id="btn30" class="filter-btn" onclick="setSpan(30, this)">1月</button>
                 <button id="btn0" class="filter-btn active" onclick="setSpan(0, this)">全部</button>
@@ -99,7 +105,15 @@
 
         <div class="card" style="padding: 10px;">
             <table>
-                <thead><tr><th>日期</th><th>體重</th><th>體脂</th><th>BMI</th><th></th></tr></thead>
+                <thead>
+                    <tr>
+                        <th style="width: 28%;">日期</th>
+                        <th style="width: 22%;">體重</th>
+                        <th style="width: 22%;">體脂</th>
+                        <th style="width: 18%;">BMI</th>
+                        <th style="width: 10%;"></th>
+                    </tr>
+                </thead>
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
@@ -129,7 +143,6 @@
 
         function login() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            provider.setCustomParameters({ prompt: 'select_account' });
             auth.signInWithPopup(provider).catch(err => {
                 if (err.code === 'auth/popup-blocked') auth.signInWithRedirect(provider);
                 else alert("登入失敗: " + err.message);
@@ -172,8 +185,15 @@
                 if (bmiVal < 18.5) bmiCol = "var(--bmi-under)";
                 else if (bmiVal >= 24) bmiCol = "var(--bmi-over)";
 
+                // 修正：年份簡寫處理 (例如 2025 -> '25)
+                const d = new Date(r.date.replace(/-/g, "/")); // 確保相容性
+                const yy = String(d.getFullYear()).slice(-2);
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                const formattedDate = `'${yy}/${mm}/${dd}`;
+
                 tbody.innerHTML += `<tr>
-                    <td>${r.date.split('-').slice(1).join('/')}</td>
+                    <td>${formattedDate}</td>
                     <td>${Number(r.weight).toFixed(1)}</td>
                     <td>${Number(r.fat).toFixed(1)}%</td>
                     <td><span class="bmi-badge" style="color:${bmiCol}">${bmiVal}</span></td>
@@ -198,10 +218,7 @@
         }
 
         function deleteRecord(date) {
-            if(confirm("刪除 " + date + "？")) {
-                records = records.filter(r => r.date !== date);
-                sync();
-            }
+            if(confirm("刪除紀錄？")) { records = records.filter(r => r.date !== date); sync(); }
         }
 
         function saveHeight() {
@@ -226,58 +243,30 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: [
-                    { label: '體重', borderColor: '#4a90e2', backgroundColor: '#4a90e2', data: [], yAxisID: 'yW', tension: 0.1, pointRadius: 4, hoverRadius: 6 },
-                    { label: '體脂', borderColor: '#f39c12', backgroundColor: '#f39c12', data: [], yAxisID: 'yF', tension: 0.1, pointRadius: 4, hoverRadius: 6 }
+                    { label: '體重', borderColor: '#4a90e2', backgroundColor: '#4a90e2', data: [], yAxisID: 'yW', tension: 0, pointRadius: 4 },
+                    { label: '體脂', borderColor: '#f39c12', backgroundColor: '#f39c12', data: [], yAxisID: 'yF', tension: 0, pointRadius: 4 }
                 ]},
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false }, // 開啟十字線基礎：索引互動
+                    interaction: { mode: 'index', intersect: false },
                     scales: {
-                        x: { 
-                            type: 'time', 
-                            time: { unit: 'day', displayFormats: { day: 'MM/dd' } }, 
-                            grid: { color: '#333' }, // 座標線顏色
-                            ticks: { color: '#aaa' } 
-                        },
-                        yW: { 
-                            position: 'left', 
-                            grid: { color: '#333' }, 
-                            ticks: { color: '#4a90e2' } 
-                        },
-                        yF: { 
-                            position: 'right', 
-                            grid: { display: false }, 
-                            ticks: { color: '#f39c12' } 
-                        }
+                        x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } }, grid: { color: '#333' } },
+                        yW: { position: 'left', grid: { color: '#333' }, ticks: { color: '#4a90e2' } },
+                        yF: { position: 'right', grid: { display: false }, ticks: { color: '#f39c12' } }
                     },
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: 'rgba(30, 30, 30, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            borderColor: '#444',
-                            borderWidth: 1
-                        }
-                    }
+                    plugins: { legend: { display: false } }
                 },
                 plugins: [{
-                    // 自定義垂直十字準星插件
                     id: 'crosshair',
                     afterDraw: (chart) => {
                         if (chart.tooltip?._active?.length) {
                             let x = chart.tooltip._active[0].element.x;
-                            let yAxis = chart.scales.yW;
                             let ctx = chart.ctx;
                             ctx.save();
-                            ctx.beginPath();
-                            ctx.moveTo(x, yAxis.top);
-                            ctx.lineTo(x, yAxis.bottom);
-                            ctx.lineWidth = 1;
-                            ctx.strokeStyle = '#666'; // 十字線顏色
-                            ctx.setLineDash([5, 5]); // 虛線
-                            ctx.stroke();
-                            ctx.restore();
+                            ctx.beginPath(); ctx.moveTo(x, chart.scales.yW.top);
+                            ctx.lineTo(x, chart.scales.yW.bottom);
+                            ctx.lineWidth = 1; ctx.strokeStyle = '#666'; ctx.setLineDash([5, 5]);
+                            ctx.stroke(); ctx.restore();
                         }
                     }
                 }]
