@@ -109,6 +109,9 @@
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.database();
+
+        // 針對 Safari 修正：設定持久性為 LOCAL
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
         
         let currentUser = null;
         let records = [];
@@ -116,13 +119,25 @@
         let chart = null;
         let currentSpan = 0;
 
-        // 2. 登入/登出 (採用 Popup 彈出方式)
+        // 2. 登入邏輯修正
         function login() {
             const provider = new firebase.auth.GoogleAuthProvider();
+            // 強制彈出帳號選擇，避免 Session 遺失
+            provider.setCustomParameters({ prompt: 'select_account' });
+            
             auth.signInWithPopup(provider).catch(err => {
-                alert("登入失敗: " + err.message);
+                console.error("Popup error:", err);
+                // 如果 Popup 失敗（如 Safari 阻擋），嘗試跳轉模式
+                if (err.code === 'auth/popup-blocked') {
+                    auth.signInWithRedirect(provider);
+                } else {
+                    alert("登入錯誤: " + err.message);
+                }
             });
         }
+
+        // 處理 Redirect 回來的結果（Safari 備案）
+        auth.getRedirectResult().catch(err => console.error("Redirect error:", err));
 
         function logout() {
             if(confirm("確定要登出嗎？")) {
@@ -130,6 +145,7 @@
             }
         }
 
+        // 監聽狀態
         auth.onAuthStateChanged(user => {
             if (user) {
                 currentUser = user;
@@ -137,7 +153,6 @@
                 document.getElementById('mainApp').classList.remove('hidden');
                 document.getElementById('userEmail').innerText = user.email;
                 
-                // 讀取該用戶專屬路徑
                 db.ref('users/' + user.uid).on('value', snapshot => {
                     const data = snapshot.val() || {};
                     records = data.records || [];
@@ -150,7 +165,7 @@
             }
         });
 
-        // 3. 資料與 UI 邏輯
+        // 3. 數據邏輯
         function sync() {
             if (currentUser) {
                 db.ref('users/' + currentUser.uid).set({
@@ -173,18 +188,16 @@
             document.getElementById('txtHeight').innerText = userHeight || "--";
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
-            
-            // 由新到舊排序顯示在表格
             const displayRecords = [...records].sort((a,b) => new Date(b.date) - new Date(a.date));
             
             displayRecords.forEach(r => {
                 const bmi = getBMIInfo(r.weight);
                 tbody.innerHTML += `<tr>
                     <td>${r.date.split('-').slice(1).join('/')}</td>
-                    <td>${r.weight.toFixed(1)}</td>
-                    <td>${r.fat.toFixed(1)}%</td>
+                    <td>${Number(r.weight).toFixed(1)}</td>
+                    <td>${Number(r.fat).toFixed(1)}%</td>
                     <td><span class="bmi-badge" style="color:${bmi.col}">${bmi.val}</span></td>
-                    <td><button onclick="deleteRecord('${r.date}')" style="background:none; border:none; color:#555; font-size:1.2rem; cursor:pointer;">✕</button></td>
+                    <td><button onclick="deleteRecord('${r.date}')" style="background:none; border:none; color:#555; cursor:pointer;">✕</button></td>
                 </tr>`;
             });
 
@@ -196,26 +209,17 @@
             const wInput = document.getElementById('weightInput');
             const fInput = document.getElementById('fatInput');
             const dInput = document.getElementById('dateInput');
-            
-            if(!wInput.value || !fInput.value) { alert("請輸入數值"); return; }
-            
-            const newRecord = { 
-                date: dInput.value, 
-                weight: parseFloat(wInput.value), 
-                fat: parseFloat(fInput.value) 
-            };
-            
-            // 如果日期重複則覆蓋
+            if(!wInput.value || !fInput.value) return;
+            const newRecord = { date: dInput.value, weight: parseFloat(wInput.value), fat: parseFloat(fInput.value) };
             const idx = records.findIndex(r => r.date === newRecord.date);
             if(idx !== -1) records[idx] = newRecord;
             else records.push(newRecord);
-            
             sync();
             wInput.value = ''; fInput.value = '';
         }
 
         function deleteRecord(date) {
-            if(confirm("確定刪除 " + date + " 的紀錄嗎？")) {
+            if(confirm("刪除 " + date + "？")) {
                 records = records.filter(r => r.date !== date);
                 sync();
             }
@@ -223,15 +227,10 @@
 
         function saveHeight() {
             const h = document.getElementById('heightInput').value;
-            if(h > 50) {
-                userHeight = h;
-                sync();
-                toggleHeightEdit(false);
-            }
+            if(h > 50) { userHeight = h; sync(); toggleHeightEdit(false); }
         }
 
         function toggleHeightEdit(show) { document.getElementById('heightEditArea').classList.toggle('hidden', !show); }
-
         function setSpan(days, btn) {
             currentSpan = days;
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -244,17 +243,15 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: [
-                    { label: '體重', borderColor: '#4a90e2', data: [], yAxisID: 'yW', tension: 0.1, pointRadius: 3 },
-                    { label: '體脂', borderColor: '#f39c12', data: [], yAxisID: 'yF', tension: 0.1, pointRadius: 3 }
+                    { label: '體重', borderColor: '#4a90e2', data: [], yAxisID: 'yW', tension: 0.1 },
+                    { label: '體脂', borderColor: '#f39c12', data: [], yAxisID: 'yF', tension: 0.1 }
                 ]},
                 options: {
                     responsive: true, maintainAspectRatio: false,
                     scales: {
                         x: { type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } } },
-                        yW: { position: 'left', title: { display: true, text: '體重' } },
-                        yF: { position: 'right', title: { display: true, text: '體脂' } }
-                    },
-                    plugins: { legend: { display: false } }
+                        yW: { position: 'left' }, yF: { position: 'right' }
+                    }
                 }
             });
         }
@@ -264,21 +261,14 @@
             const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
             chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
             chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
-            
             if(currentSpan > 0) {
-                const max = new Date();
-                const min = new Date();
+                const max = new Date(); const min = new Date();
                 min.setDate(max.getDate() - currentSpan);
-                chart.options.scales.x.min = min;
-                chart.options.scales.x.max = max;
-            } else {
-                chart.options.scales.x.min = null;
-                chart.options.scales.x.max = null;
-            }
+                chart.options.scales.x.min = min; chart.options.scales.x.max = max;
+            } else { chart.options.scales.x.min = null; chart.options.scales.x.max = null; }
             chart.update();
         }
 
-        // 輸入輔助
         const autoPoint = (e) => {
             let v = e.target.value.replace(/\D/g, '').slice(0,3);
             if(v.length === 3) e.target.value = v.slice(0,2) + "." + v.slice(2);
