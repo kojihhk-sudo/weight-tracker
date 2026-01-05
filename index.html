@@ -270,7 +270,7 @@
                         x: { 
                             type: 'time', 
                             time: { 
-                                unit: 'day',
+                                unit: 'day', 
                                 displayFormats: { day: "'yy/MM/dd" }
                             }, 
                             ticks: {
@@ -280,7 +280,7 @@
                             },
                             grid: { color: '#333' } 
                         },
-                        // 設定體重軸範圍 40~70
+                        // 左側軸固定 40~70
                         yW: { 
                             position: 'left', 
                             min: 40, 
@@ -288,11 +288,11 @@
                             grid: { color: '#333' }, 
                             ticks: { color: '#4a90e2' } 
                         },
-                        // 設定體脂軸範圍 20~32
+                        // 右側軸固定 15~30
                         yF: { 
                             position: 'right', 
-                            min: 20, 
-                            max: 32,
+                            min: 15, 
+                            max: 30,
                             grid: { display: false }, 
                             ticks: { color: '#f39c12' } 
                         }
@@ -316,7 +316,6 @@
             chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
             chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
             
-            // 處理 X 軸時間範圍篩選
             if(currentSpan > 0) {
                 const max = new Date(); const min = new Date();
                 min.setDate(max.getDate() - currentSpan);
