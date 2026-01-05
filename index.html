@@ -157,7 +157,6 @@
         let chart = null;
         let currentSpan = 0;
 
-        // 格式化日期函數: YYYY-MM-DD -> 'YY/MM/DD
         function formatDateLabel(dateStr) {
             const d = new Date(dateStr.replace(/-/g, "/"));
             const yy = String(d.getFullYear()).slice(-2);
@@ -275,14 +274,28 @@
                                 displayFormats: { day: "'yy/MM/dd" }
                             }, 
                             ticks: {
-                                callback: function(value, index, values) {
+                                callback: function(value) {
                                     return formatDateLabel(new Date(value).toISOString().split('T')[0]);
                                 }
                             },
                             grid: { color: '#333' } 
                         },
-                        yW: { position: 'left', grid: { color: '#333' }, ticks: { color: '#4a90e2' } },
-                        yF: { position: 'right', grid: { display: false }, ticks: { color: '#f39c12' } }
+                        // 設定體重軸範圍 40~70
+                        yW: { 
+                            position: 'left', 
+                            min: 40, 
+                            max: 70,
+                            grid: { color: '#333' }, 
+                            ticks: { color: '#4a90e2' } 
+                        },
+                        // 設定體脂軸範圍 20~32
+                        yF: { 
+                            position: 'right', 
+                            min: 20, 
+                            max: 32,
+                            grid: { display: false }, 
+                            ticks: { color: '#f39c12' } 
+                        }
                     },
                     plugins: { 
                         legend: { display: false },
@@ -299,25 +312,11 @@
         function updateChart() {
             if(!chart || records.length === 0) return;
             const sorted = [...records].sort((a,b) => new Date(a.date) - new Date(b.date));
-            
-            const weights = sorted.map(r => r.weight);
-            const fats = sorted.map(r => r.fat);
-            
-            const minW = Math.min(...weights);
-            const maxW = Math.max(...weights);
-            const diffW = maxW - minW || 10;
-            chart.options.scales.yW.min = minW - diffW * 0.1 - 1; 
-            chart.options.scales.yW.max = maxW + diffW * 0.3 + 2; 
-            
-            const minF = Math.min(...fats);
-            const maxF = Math.max(...fats);
-            const diffF = maxF - minF || 5;
-            chart.options.scales.yF.min = minF - diffF * 0.3 - 1; 
-            chart.options.scales.yF.max = maxF + diffF * 0.1 + 1; 
 
             chart.data.datasets[0].data = sorted.map(r => ({x: new Date(r.date), y: r.weight}));
             chart.data.datasets[1].data = sorted.map(r => ({x: new Date(r.date), y: r.fat}));
             
+            // 處理 X 軸時間範圍篩選
             if(currentSpan > 0) {
                 const max = new Date(); const min = new Date();
                 min.setDate(max.getDate() - currentSpan);
